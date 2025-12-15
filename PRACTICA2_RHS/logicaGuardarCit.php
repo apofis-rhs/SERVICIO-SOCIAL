@@ -27,6 +27,5 @@ if (isset($_POST['nom_cit']) && isset($_POST['id_eje2'])) {
     echo "Faltan datos necesarios para agregar la cita.";
 }
 
-// 5. Cierra la conexión
 $connection->close();
 ?>
