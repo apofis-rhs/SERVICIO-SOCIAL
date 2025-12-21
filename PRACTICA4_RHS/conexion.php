@@ -2,7 +2,7 @@
 	$host = "localhost";
 	$user = "root"; 
 	$pass = "";
-	$database = "basedatos";
+	$database = "basedatos2";
 	$connection = mysqli_connect($host, $user, $pass, $database);
 
 	if (!$connection) {
