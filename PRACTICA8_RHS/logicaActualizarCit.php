@@ -20,6 +20,7 @@ $setClauses = []; // Array para guardar las cláusulas SET (ej: nom_cit = 'Nuevo
 // --- 3. CONSTRUCCIÓN DINÁMICA DE LA CONSULTA ---
 // ... dentro de logicaActualizarCit.php
 
+// --- 3. CONSTRUCCIÓN DINÁMICA DE LA CONSULTA ---
 foreach ($_POST as $key => $value) {
     
     // 3.1. Ignorar el campo 'id_cit' y 'rango_fijo'

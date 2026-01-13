@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/handsontable/styles/handsontable.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/handsontable/styles/ht-theme-main.min.css" />
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <title>Document</title>
+</head>
+<body>
+    <div style="margin-bottom: 10px; display: flex; align-items: center; gap: 10px;">
+    <label style="font-weight: bold;">Buscar:</label>
+    <input id="buscador_agenda" type="text" placeholder="ID, Nombre o Teléfono..." 
+           style="padding: 8px; width: 300px; border: 1px solid #ccc; border-radius: 4px;">
+</div>
+<style>
+    
+    .handsontable .htSearchResult {
+        background-color: #c296e9 !important; /* Tu azul */
+        color: #ffffff !important;           /* Texto blanco suele verse mejor con ese azul */
+        font-weight: bold !important;
+        box-shadow: inset 0 0 0 1px #2a7fb3; /* Un borde interno azul oscuro para resaltar */
+    }
+
+  
+    .htCenter {
+        text-align: center !important;
+    }
+</style>
+
+    <div id="handsometable"></div>
+
+
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/handsontable/dist/handsontable.full.min.js"></script>
+    <script src="handsome.js"></script>
+</body>
+</html>

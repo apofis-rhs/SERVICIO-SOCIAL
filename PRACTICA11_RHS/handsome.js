@@ -3,7 +3,50 @@ let hotInstance = null;
 let isAutosaving = false;
 let listaEjecutivosGlobal = []; 
 
+// Variable global para recordar a quién le dimos clic
+var ejecutivoSeleccionadoID = null;
 
+$(document).ready(function () {
+    // 1. Carga inicial (opcional: podrías cargar todo o nada al principio)
+    cargarCitas(); 
+
+    // 2. ESCUCHAR CLIC EN EL ÁRBOL (Esta es la clave)
+// 2. ESCUCHAR CLIC EN EL ÁRBOL (VERSIÓN CORREGIDA)
+    $('#arbol_ejecutivos').on('select_node.jstree', function (e, data) {
+        ejecutivoSeleccionadoID = data.node.id;
+        var idTexto = String(ejecutivoSeleccionadoID);
+        var $selector = $('#filtro_jerarquia'); // Buscamos el elemento por ID
+
+        // DIAGNÓSTICO: Si esto sale "0", es que el ID del HTML está mal
+        if ($selector.length === 0) {
+            console.error("ERROR CRÍTICO: No encuentro el <select id='filtro_jerarquia'> en el HTML");
+        }
+
+        // LÓGICA VISUAL
+        if (idTexto.indexOf('P') === 0) {
+            // Es Plantel: Forzamos visualmente a 'arbol' y bloqueamos
+            $selector.val('arbol').change(); // .change() asegura que se actualice el valor interno
+            $selector.prop('disabled', true);
+        } else {
+            // Es Ejecutivo: Desbloqueamos
+            $selector.prop('disabled', false);
+        }
+        
+        // Llamamos a cargar citas
+        cargarCitas();
+    });
+
+    // 3. ESCUCHAR CAMBIO EN EL FILTRO (Individual vs Árbol)
+    $('#filtro_jerarquia').on('change', function() {
+        if (ejecutivoSeleccionadoID) {
+            cargarCitas();
+        }
+    });
+});
+
+
+
+// muestra el horario en la tabla, crea fila vacia  si no hay nada
 function generarEstructuraAgenda(citasBD) {
     const horaInicio = 8;
     const horaFin = 20;
@@ -27,7 +70,7 @@ function generarEstructuraAgenda(citasBD) {
                 let nombreVisual = "";
                 let ejecutivoEncontrado = listaEjecutivosGlobal.find(e => e.id == cita.id_eje2);
                 if (ejecutivoEncontrado) {
-                    nombreVisual = ejecutivoEncontrado.label; 
+                    nombreVisual = ejecutivoEncontrado.label; // 'Juan Perez'
                 }
 
                 agendaData.push({
@@ -62,10 +105,8 @@ function generarEstructuraAgenda(citasBD) {
     return agendaData;
 }
 
-
-// ----------------------------------------------------------------------
-// FASE I, PASO 3: initializeHandsontable 
-// ----------------------------------------------------------------------
+// dibuja la tabla, usa el metadata para la estructura, la lista desplegable
+// y añade tambien el context menu clic derecho
 function initializeHandsontable(dataCitas, metadata) {
     
     // 1. Preprocesar los datos para la Agenda
@@ -127,7 +168,32 @@ function initializeHandsontable(dataCitas, metadata) {
         columns: columns,
         
         rowHeaders: true,
-        contextMenu: true,
+       contextMenu: {
+    items: {
+        "row_above": {},
+        "row_below": {},
+        "hsep1": "---------",
+        "remove_row": { },
+        "hsep2": "---------",
+        "ver_historial": {
+            name: 'Ver Historial de Cita',
+            callback: function(key, selection) {
+                const row = selection[0].start.row;
+                const rowData = this.getSourceDataAtRow(row);
+                
+                // Solo abrir si la fila tiene un ID (es una cita guardada)
+                if (rowData && rowData.id_cit) {
+                    abrirModalHistorial(rowData.id_cit);
+                } else {
+                    alert("Esta fila no tiene movimientos registrados aún.");
+                }
+            }
+        },
+        "alignment": {},
+        "copy": {},
+        "cut": {}
+    }
+},
         licenseKey: 'non-commercial-and-evaluation',
         columnSorting: {
             indicator: true,
@@ -159,6 +225,7 @@ function initializeHandsontable(dataCitas, metadata) {
             }
         },
 
+        // aqui es un escuchador, se activa cada vez que se edita o crea una cita
         afterChange: function (changes, source) {
             if (source === 'loadData' || source === 'id_population' || !changes) {
                 return;
@@ -166,14 +233,29 @@ function initializeHandsontable(dataCitas, metadata) {
 
             changes.forEach(([row, prop, oldValue, newValue]) => {
                 if (oldValue === newValue) return;
+                
+                if (prop === 'nom_eje_visual') {
+                    // 1. Buscamos al ejecutivo en nuestra lista global
+                    const ejecutivoEncontrado = listaEjecutivosGlobal.find(e => e.label === newValue);
+                    
+                    if (ejecutivoEncontrado) {
+                        // 2. "Pegamos" el teléfono en la columna 'tel_eje'
+                        // Usamos 'setDataAtRowProp' que es la forma segura de editar por nombre de columna
+                        // El último parámetro 'auto_relleno' es una etiqueta para evitar bucles infinitos
+                        this.setDataAtRowProp(row, 'tel_eje', ejecutivoEncontrado.tel, 'auto_relleno');
+                    } else {
+                        // Si borraron el nombre, borramos el teléfono
+                        this.setDataAtRowProp(row, 'tel_eje', '', 'auto_relleno');
+                    }
+                }
+                // ------------------------------------------------
 
                 const rowData = this.getSourceDataAtRow(row);
 
+                // Lógica de Guardado (Tu código existente)
                 if (rowData.id_cit) {
-                    // CASO 1: UPDATE
                     ajaxActualizarCita(rowData);
                 } else {
-                    // CASO 2: CREATE
                     if (prop !== 'rango_fijo' && rowData.nom_cit && rowData.nom_cit.trim() !== '') {
                         ajaxGuardarCita(rowData, row); 
                     }
@@ -184,22 +266,26 @@ function initializeHandsontable(dataCitas, metadata) {
     });
 }
 
-
-// ----------------------------------------------------------------------
-// FASE I, PASO 2: cargarCitas
-// ----------------------------------------------------------------------
+// Carga inicial de citas desde el servidor
+// --- FUNCIÓN MODIFICADA PARA ENVIAR PARAMETROS ---
 function cargarCitas() {
+    // Obtenemos el modo seleccionado del dropdown
+    const modoVista = $('#filtro_jerarquia').val(); 
+
+    console.log("Cargando citas para:", ejecutivoSeleccionadoID, "Modo:", modoVista);
+
     $.ajax({
         url: 'obtenerCitas.php',
         type: 'GET',
         dataType: 'json',
+        data: { 
+            // Enviamos estos datos nuevos al PHP
+            id_eje: ejecutivoSeleccionadoID, 
+            modo: modoVista 
+        },
         success: function (response) {
             if (response && response.data && response.metadata) {
-                
-                // 1. GUARDAMOS LA LISTA DE EJECUTIVOS QUE VIENE DE TU PHP
-                listaEjecutivosGlobal = response.ejecutivos || []; 
-
-                // 2. INICIAMOS LA TABLA
+                listaEjecutivosGlobal = response.ejecutivos || [];
                 initializeHandsontable(response.data, response.metadata);
             }
         },
@@ -207,9 +293,8 @@ function cargarCitas() {
     });
 }
 
-// ----------------------------------------------------------------------
-// Funciones AJAX de CRUD
-// ----------------------------------------------------------------------
+
+// la funcion se asegura que se tomo el id correcto y limpia cualquier dato innecesario
 function prepararDatosParaEnvio(rowData) {
     
     // A. Calculamos el ID del ejecutivo basado en el nombre visual
@@ -237,6 +322,7 @@ function prepararDatosParaEnvio(rowData) {
     };
 }
 
+// Se activa al borrar una fila, pidiendo confirmación al usuario antes de llamar al PHP de borrado lógico.
 function ajaxEliminarCita(id) {
     console.log("Eliminando ID:", id);
     $.ajax({
@@ -248,6 +334,7 @@ function ajaxEliminarCita(id) {
     });
 }
 
+//Se activa cada vez que se cambia cualquier letra o dato en una cita que ya existía.
 function ajaxActualizarCita(rowData) {
     // 1. Usamos la función para limpiar los datos antes de enviar
     const datosLimpios = prepararDatosParaEnvio(rowData);
@@ -267,6 +354,9 @@ function ajaxActualizarCita(rowData) {
     });
 }
 
+//Se activa cuando se escribe en una fila vacía.
+//  Al terminar, el servidor le responde con el nuevo ID de la base de datos y 
+// la función lo "pega" en la celda oculta de ID para que la fila deje de ser "nueva".
 function ajaxGuardarCita(rowData, visualRowIndex) {
     isAutosaving = true;
     
@@ -324,3 +414,85 @@ $(document).ready(function () {
     });
 }
 });
+
+function abrirModalHistorial(idCita) {
+    const modal = document.getElementById('modalHistorial');
+    const contenido = document.getElementById('contenidoHistorial');
+    
+    // Mostrar el modal 
+    modal.style.display = 'block';
+    contenido.innerHTML = 'Cargando registros...';
+
+    $.ajax({
+        url: 'obtenerHistorial.php',
+        type: 'GET',
+        data: { id_cit: idCita },
+        success: function(data) {
+            if (data.length === 0) {
+                contenido.innerHTML = '<p>No se encontraron movimientos para esta cita.</p>';
+                return;
+            }
+
+            // Generar tabla de historial dentro del modal
+            let tabla = `<table border="1" style="width:100%; border-collapse: collapse;">
+                <tr style="background: #f2f2f2;">
+                    <th>Fecha/Hora</th>
+                    <th>Responsable</th>
+                    <th>Movimiento</th>
+                    <th>Descripción</th>
+                </tr>`;
+            
+            data.forEach(item => {
+                tabla += `<tr>
+                    <td>${item.fec_his_cit}</td>
+                    <td>${item.res_his_cit}</td>
+                    <td><strong>${item.mov_his_cit.toUpperCase()}</strong></td>
+                    <td>${item.des_his_cit}</td>
+                </tr>`;
+            });
+            tabla += `</table>`;
+            contenido.innerHTML = tabla;
+        },
+        error: function() {
+            contenido.innerHTML = 'Error al recuperar el historial.';
+        }
+    });
+}
+
+//Esta función se dispara automáticamente cuando se termina de crear
+//  un nuevo nodo o de renombrar uno existente en el árbol.
+function guardarCambiosArbol(data) {
+    $.ajax({
+        url: 'logicaArbolEjecutivos.php',
+        type: 'POST',
+        data: {
+            accion: 'crear_o_renombrar',
+            id: data.node.id,
+            texto: data.text,
+            padre: data.node.parent
+        },
+        success: function (response) {
+            const res = JSON.parse(response);
+            if (res.id) {
+                // Actualizamos el ID temporal de jsTree con el ID real de la BD
+                $('#arbol_ejecutivos').jstree(true).set_id(data.node, res.id);
+            }
+            // OPCIONAL: Refrescar los dropdowns de Handsontable
+            cargarCitas(); 
+        }
+    });
+}
+
+//Esta función se ejecuta cuando el usuario confirma que desea
+//  "Dar de baja" a un ejecutivo desde el menú de clic derecho.
+function eliminarEjecutivo(node) {
+    $.ajax({
+        url: 'logicaArbolEjecutivos.php',
+        type: 'POST',
+        data: { accion: 'eliminar', id: node.id },
+        success: function () {
+            $('#arbol_ejecutivos').jstree('delete_node', node);
+            cargarCitas(); // Refrescar tabla para quitar al ejecutivo de las opciones
+        }
+    });
+}

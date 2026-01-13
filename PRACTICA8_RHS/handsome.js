@@ -27,7 +27,7 @@ function generarEstructuraAgenda(citasBD) {
                 let nombreVisual = "";
                 let ejecutivoEncontrado = listaEjecutivosGlobal.find(e => e.id == cita.id_eje2);
                 if (ejecutivoEncontrado) {
-                    nombreVisual = ejecutivoEncontrado.label; 
+                    nombreVisual = ejecutivoEncontrado.label; // 'Juan Perez'
                 }
 
                 agendaData.push({
@@ -127,7 +127,21 @@ function initializeHandsontable(dataCitas, metadata) {
         columns: columns,
         
         rowHeaders: true,
-        contextMenu: true,
+        contextMenu: {
+    items: {
+        "row_above": {},
+        "row_below": {},
+        "hsep1": "---------", 
+        "remove_row": {},
+        "hsep2": "---------",
+        "alignment": {},
+        "copy": {},
+        "cut": {},
+        "undo": {},
+        "redo": {},
+        "make_read_only": {}
+    }
+},
         licenseKey: 'non-commercial-and-evaluation',
         columnSorting: {
             indicator: true,
@@ -205,6 +219,8 @@ function cargarCitas() {
         },
         error: function (xhr, status, error) { console.error("Error:", error); }
     });
+
+    
 }
 
 // ----------------------------------------------------------------------

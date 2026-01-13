@@ -27,7 +27,7 @@ function generarEstructuraAgenda(citasBD) {
                 let nombreVisual = "";
                 let ejecutivoEncontrado = listaEjecutivosGlobal.find(e => e.id == cita.id_eje2);
                 if (ejecutivoEncontrado) {
-                    nombreVisual = ejecutivoEncontrado.label; 
+                    nombreVisual = ejecutivoEncontrado.label; // 'Juan Perez'
                 }
 
                 agendaData.push({
@@ -127,7 +127,32 @@ function initializeHandsontable(dataCitas, metadata) {
         columns: columns,
         
         rowHeaders: true,
-        contextMenu: true,
+       contextMenu: {
+    items: {
+        "row_above": {},
+        "row_below": {},
+        "hsep1": "---------",
+        "remove_row": { },
+        "hsep2": "---------",
+        "ver_historial": {
+            name: 'Ver Historial de Cita',
+            callback: function(key, selection) {
+                const row = selection[0].start.row;
+                const rowData = this.getSourceDataAtRow(row);
+                
+                // Solo abrir si la fila tiene un ID (es una cita guardada)
+                if (rowData && rowData.id_cit) {
+                    abrirModalHistorial(rowData.id_cit);
+                } else {
+                    alert("Esta fila no tiene movimientos registrados aún.");
+                }
+            }
+        },
+        "alignment": {},
+        "copy": {},
+        "cut": {}
+    }
+},
         licenseKey: 'non-commercial-and-evaluation',
         columnSorting: {
             indicator: true,
@@ -205,6 +230,8 @@ function cargarCitas() {
         },
         error: function (xhr, status, error) { console.error("Error:", error); }
     });
+
+    
 }
 
 // ----------------------------------------------------------------------
@@ -324,3 +351,47 @@ $(document).ready(function () {
     });
 }
 });
+
+function abrirModalHistorial(idCita) {
+    const modal = document.getElementById('modalHistorial');
+    const contenido = document.getElementById('contenidoHistorial');
+    
+    // Mostrar el modal (puedes usar CSS para el diseño)
+    modal.style.display = 'block';
+    contenido.innerHTML = 'Cargando registros...';
+
+    $.ajax({
+        url: 'obtenerHistorial.php',
+        type: 'GET',
+        data: { id_cit: idCita },
+        success: function(data) {
+            if (data.length === 0) {
+                contenido.innerHTML = '<p>No se encontraron movimientos para esta cita.</p>';
+                return;
+            }
+
+            // Generar tabla de historial dentro del modal
+            let tabla = `<table border="1" style="width:100%; border-collapse: collapse;">
+                <tr style="background: #f2f2f2;">
+                    <th>Fecha/Hora</th>
+                    <th>Responsable</th>
+                    <th>Movimiento</th>
+                    <th>Descripción</th>
+                </tr>`;
+            
+            data.forEach(item => {
+                tabla += `<tr>
+                    <td>${item.fec_his_cit}</td>
+                    <td>${item.res_his_cit}</td>
+                    <td><strong>${item.mov_his_cit.toUpperCase()}</strong></td>
+                    <td>${item.des_his_cit}</td>
+                </tr>`;
+            });
+            tabla += `</table>`;
+            contenido.innerHTML = tabla;
+        },
+        error: function() {
+            contenido.innerHTML = 'Error al recuperar el historial.';
+        }
+    });
+}
