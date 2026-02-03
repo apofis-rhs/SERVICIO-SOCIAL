@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test WebSocket BUCLE INFINITO - NO USAR</title>
+    <!-- Handsontable CDN -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/handsontable@14.5.0/dist/handsontable.full.min.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/handsontable@14.5.0/dist/handsontable.full.min.js"></script>
+</head>
+<body>
+    <h1>⚠️ Test BUCLE INFINITO - Solo para Demostración</h1>
+    <div id="tabla" style="width: 600px; height: 300px;"></div>
+    <p style="color: red;"><strong>ADVERTENCIA:</strong> Este ejemplo genera bucle infinito. Refresca la página para parar.</p>
+    <div id="log" style="margin-top: 20px; padding: 10px; border: 1px solid #ccc; height: 200px; overflow-y: scroll;"></div>
+
+    <script>
+        const socket = new WebSocket('wss://socket.ahjende.com/wss/?encoding=text');
+        
+        function log(mensaje) {
+            const time = new Date().toLocaleTimeString();
+            document.getElementById('log').innerHTML += `<p>[${time}] ${mensaje}</p>`;
+            document.getElementById('log').scrollTop = document.getElementById('log').scrollHeight;
+        }
+        
+        const datos = [
+            [1, 'Juan Pérez', '555-1234'],
+            [2, 'María García', '555-5678']
+        ];
+        
+        const hot = new Handsontable(document.getElementById('tabla'), {
+            data: datos,
+            colHeaders: ['ID Cita', 'Nombre Cliente', 'Teléfono'],
+            columns: [
+                {readOnly: true}, // ID no editable
+                {type: 'text'},   // Nombre
+                {type: 'text'}    // Teléfono
+            ],
+            licenseKey: 'non-commercial-and-evaluation',
+            
+            afterChange: function(changes, source) {
+                log(`📝 afterChange disparado con source: ${source}`);
+                
+                // ❌ SIN VALIDACIÓN DE SOURCE - ESTO CAUSA EL BUCLE
+                // Removemos la validación source !== 'websocket'
+                if (source !== 'loadData') {
+                    changes.forEach(function([row, col, oldValue, newValue]) {
+                        const id_cit = hot.getDataAtCell(row, 0);
+                        const campo = col === 1 ? 'nom_cit' : 'tel_cit';
+                        
+                        const mensaje = {
+                            tipo: 'cita_actualizada',
+                            id_cit: id_cit,
+                            campo: campo,
+                            valor: newValue,
+                            id_ejecutivo: 1
+                        };
+                        
+                        socket.send(JSON.stringify(mensaje));
+                        log(`📤 ENVIADO: ${JSON.stringify(mensaje)}`);
+                    });
+                }
+            }
+        });
+        
+        socket.onopen = function() {
+            log('✅ WebSocket conectado');
+        };
+        
+        socket.onmessage = function(event) {
+            const mensaje = JSON.parse(event.data);
+            log(`📨 RECIBIDO: ${JSON.stringify(mensaje)}`);
+            
+            // ❌ SIN VALIDACIÓN DE USUARIO - Procesamos TODOS los mensajes
+            
+            if (mensaje.tipo === 'cita_actualizada') {
+                const filas = hot.getData();
+                for (let i = 0; i < filas.length; i++) {
+                    if (filas[i][0] == mensaje.id_cit) {
+                        const col = mensaje.campo === 'nom_cit' ? 1 : 2;
+                        
+                        log(`🔄 Actualizando fila ${i}, columna ${col} con "${mensaje.valor}"`);
+                        
+                        // ❌ SIN source 'websocket' - Esto dispara afterChange otra vez
+                        hot.setDataAtCell(i, col, mensaje.valor);
+                        
+                        break;
+                    }
+                }
+            }
+        };
+        
+        socket.onclose = function() {
+            log('🔴 WebSocket desconectado');
+        };
+    </script>
+</body>
+</html>

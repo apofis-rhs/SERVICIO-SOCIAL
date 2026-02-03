@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket + Handsontable SICAM</title>
+    <!-- Handsontable CDN -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/handsontable@14.5.0/dist/handsontable.full.min.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/handsontable@14.5.0/dist/handsontable.full.min.js"></script>
+</head>
+<body>
+    <h1>Test WebSocket + Handsontable</h1>
+    <div id="tabla" style="width: 600px; height: 300px;"></div>
+    <p>Mi ID Ejecutivo: <input id="miId" value="1" style="width: 50px;"> (Cambia a 2 en otra pestaña)</p>
+    <div id="log" style="margin-top: 20px; padding: 10px; border: 1px solid #ccc; height: 200px; overflow-y: scroll;"></div>
+
+    <script>
+        // WebSocket
+        const socket = new WebSocket('wss://socket.ahjende.com/wss/?encoding=text');
+        
+        function log(mensaje) {
+            const time = new Date().toLocaleTimeString();
+            document.getElementById('log').innerHTML += `<p>[${time}] ${mensaje}</p>`;
+            document.getElementById('log').scrollTop = document.getElementById('log').scrollHeight;
+        }
+        
+        // Datos de prueba (simular citas)
+        const datos = [
+            [1, 'Juan Pérez', '555-1234'],
+            [2, 'María García', '555-5678'],
+            [3, 'Carlos López', '555-9999']
+        ];
+        
+        // Handsontable
+        const hot = new Handsontable(document.getElementById('tabla'), {
+            data: datos,
+            colHeaders: ['ID Cita', 'Nombre Cliente', 'Teléfono'],
+            columns: [
+                {readOnly: true}, // ID no editable
+                {type: 'text'},   // Nombre
+                {type: 'text'}    // Teléfono
+            ],
+            licenseKey: 'non-commercial-and-evaluation',
+            
+            afterChange: function(changes, source) {
+                log(`📝 afterChange disparado con source: ${source}`);
+                
+                if (source !== 'loadData' && source !== 'websocket') {
+                    changes.forEach(function([row, col, oldValue, newValue]) {
+                        
+                        const id_cit = hot.getDataAtCell(row, 0);
+                        const campo = col === 1 ? 'nom_cit' : 'tel_cit';
+                        const miId = parseInt(document.getElementById('miId').value);
+                        
+                        // Enviar por WebSocket
+                        const mensaje = {
+                            tipo: 'cita_actualizada',
+                            id_cit: id_cit,
+                            campo: campo,
+                            valor: newValue,
+                            id_ejecutivo: miId
+                        };
+                        
+                        socket.send(JSON.stringify(mensaje));
+                        log(`📤 ENVIADO: Cita ${id_cit}, campo ${campo} = "${newValue}"`);
+                    });
+                }
+            }
+        });
+        
+        // WebSocket eventos
+        socket.onopen = function() {
+            log('✅ WebSocket conectado');
+        };
+        
+        socket.onmessage = function(event) {
+            const mensaje = JSON.parse(event.data);
+            const miId = parseInt(document.getElementById('miId').value);
+            
+            log(`📨 RECIBIDO: ${JSON.stringify(mensaje)}`);
+            
+            // Ignorar mis propios mensajes
+            if (mensaje.id_ejecutivo === miId) {
+                log('⏭️ Ignorando mi propio mensaje');
+                return;
+            }
+            
+            // Solo procesar actualizaciones de citas
+            if (mensaje.tipo === 'cita_actualizada') {
+                // Buscar fila y actualizar
+                const filas = hot.getData();
+                for (let i = 0; i < filas.length; i++) {
+                    if (filas[i][0] == mensaje.id_cit) {
+                        const col = mensaje.campo === 'nom_cit' ? 1 : 2;
+                        
+                        log(`🔄 Actualizando fila ${i}, columna ${col} con "${mensaje.valor}"`);
+                        
+                        // Actualizar con source 'websocket' (IMPORTANTE)
+                        hot.setDataAtCell(i, col, mensaje.valor, 'websocket');
+                        
+                        // Resaltar visualmente
+                        const celda = hot.getCell(i, col);
+                        if (celda) {
+                            celda.style.backgroundColor = '#ffeb3b';
+                            celda.style.transition = 'background-color 0.3s';
+                            setTimeout(() => {
+                                celda.style.backgroundColor = '';
+                            }, 2000);
+                        }
+                        
+                        break;
+                    }
+                }
+            }
+        };
+        
+        socket.onclose = function() {
+            log('🔴 WebSocket desconectado');
+        };
+        
+        socket.onerror = function(error) {
+            log('❌ Error WebSocket: ' + error);
+        };
+    </script>
+</body>
+</html>
