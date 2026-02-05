@@ -1,15 +1,40 @@
+// ==========================================
+// 1. VARIABLE SEMÁFORO (GLOBAL) 🚦
+// ==========================================
+// Esta variable es vital para evitar bucles infinitos entre Socket <-> JS
+let ignorarEventosArbol = false; 
+
+// ==========================================
+// 2. HELPER VISUAL (FLASH) ✨
+// ==========================================
+function iluminarNodo(idNodo) {
+    var selector = '#' + idNodo + '_anchor';
+    var elemento = $(selector);
+    
+    if (elemento.length > 0) {
+        elemento.addClass('jstree-flash');
+        setTimeout(function() {
+            elemento.removeClass('jstree-flash');
+        }, 2000);
+    }
+}
+
+// ==========================================
+// 3. INICIALIZACIÓN (DOCUMENT READY) 🚀
+// ==========================================
 $(document).ready(function () {
-    // Inicialización Estándar
+    
+    // --- CONFIGURACIÓN JSTREE (Tu lógica original intacta) ---
     $('#arbol_ejecutivos').jstree({
         'core': {
             'data': {
                 'url': 'obtenerEjecutivosArbol.php',
                 'dataType': 'json'
             },
-            'check_callback': true, //con este se puede editar el árbol d and d
+            'check_callback': true, // Permite editar y mover
             'themes': { 'responsive': false }
         },
-        'plugins': ['contextmenu', 'types', 'dnd' /*'state'*/], // habilidades extra: menu, tipos, arrastrar y soltar, estado 
+        'plugins': ['contextmenu', 'types', 'dnd'], 
         'types': {
             'default': { 'icon': 'glyphicon glyphicon-folder-open' },
             'plantel': { 'icon': 'glyphicon glyphicon-home' },
@@ -20,7 +45,6 @@ $(document).ready(function () {
                 // Menú para Plantel
                 if (node.type === 'plantel') {
                     return {
-                        //no se puede borrar ni renombrar un plante   
                         "Crear": {
                             "label": "Añadir Ejecutivo",
                             "action": function (obj) {
@@ -64,42 +88,56 @@ $(document).ready(function () {
         }
     });
 
-    // Eventos
+    // ==========================================
+    // 4. EVENTOS DEL ÁRBOL (CON PROTECCIÓN) 🛡️
+    // ==========================================
+
+    // Al renombrar (Manual)
     $('#arbol_ejecutivos').on('rename_node.jstree', function (e, data) {
+        // 🛑 SEMÁFORO: Si el socket está escribiendo, ignoramos este evento
+        if (ignorarEventosArbol) return; 
+        
         guardarCambiosArbol(data);
     });
 
+    // Al mover (Manual)
     $('#arbol_ejecutivos').on('move_node.jstree', function (e, data) {
+        // 🛑 SEMÁFORO: Si el socket está moviendo, ignoramos este evento
+        if (ignorarEventosArbol) return;
+
         actualizarPosicionEjecutivo(data);
     });
 
-    // 1. Clic en BADGE MORADO (Equipo/Recursivo) 
+    // --- CLIC EN BADGE MORADO (Equipo/Recursivo) ---
+    // (Nota: Tenías este bloque duplicado en tu código, dejé solo una versión corregida)
     $('#arbol_ejecutivos').on('click', '.badge-recursivo', function(e) {
-     
-        e.stopPropagation();
+        e.stopPropagation(); // Evita que jstree colapse/expanda al hacer clic en el badge
 
         var nodoLI = $(this).closest('li');
         var idNodo = nodoLI.attr('id');
 
-        console.log(" Clic Morado detectado en nodo:", idNodo);
+        console.log("Clic Morado detectado en nodo:", idNodo);
 
-       
         ejecutivoSeleccionadoID = idNodo;
 
+        // Selección visual en el árbol
         $('#arbol_ejecutivos').jstree('deselect_all');
         $('#arbol_ejecutivos').jstree('select_node', idNodo);
 
+        // Recarga tabla
         if (typeof cargarCitas === "function") {
             cargarCitas('arbol'); 
         }
     });
 
-    // 2. Clic en BADGE BLANCO (Individual) 
+    // --- CLIC EN BADGE BLANCO (Individual) ---
     $('#arbol_ejecutivos').on('click', '.badge-propio', function(e) {
+        e.stopPropagation();
+
         var nodoLI = $(this).closest('li');
         var idNodo = nodoLI.attr('id');
         
-       // console.log(" Clic Blanco detectado en nodo:", idNodo);
+        // console.log("Clic Blanco detectado en nodo:", idNodo);
 
         ejecutivoSeleccionadoID = idNodo;
 
@@ -107,52 +145,17 @@ $(document).ready(function () {
         arbol.deselect_all(true);
         arbol.select_node(idNodo, true);
 
-
         if (typeof cargarCitas === "function") {
             cargarCitas('individual');
         }
     });
 
+}); // FIN DOCUMENT READY
 
-   
-    // CLIC EN BADGE MORADO 
-    $('#arbol_ejecutivos').on('click', '.badge-recursivo', function(e) {
-        // 1. Obtener ID del ejecutivo clicado (buscando el <li> padre)
-        var nodoLI = $(this).closest('li');
-        var idNodo = nodoLI.attr('id');
 
-        // 2. Actualizar la variable global
-        ejecutivoSeleccionadoID = idNodo;
-
-        // 3. Pintar el árbol (seleccionar visualmente)
-        $('#arbol_ejecutivos').jstree('deselect_all');
-        $('#arbol_ejecutivos').jstree('select_node', idNodo);
-
-        // 4. ¡USAR TU LÓGICA EXISTENTE! 
-        // Le ordenamos: "Carga citas en modo ARBOL" (igual que el dropdown)
-        if (typeof cargarCitas === "function") {
-            cargarCitas('arbol'); 
-        }
-    });
-
-    // CLIC EN BADGE BLANCO 
-    $('#arbol_ejecutivos').on('click', '.badge-propio', function(e) {
-        var nodoLI = $(this).closest('li');
-        var idNodo = nodoLI.attr('id');
-
-        ejecutivoSeleccionadoID = idNodo;
-
-        $('#arbol_ejecutivos').jstree('deselect_all');
-        $('#arbol_ejecutivos').jstree('select_node', idNodo);
-
-        // Le ordenamos: "Carga citas en modo INDIVIDUAL"
-        if (typeof cargarCitas === "function") {
-            cargarCitas('individual'); 
-        }
-    });
-});
-
-// FUNCIONES AUXILIARES 
+// ==========================================
+// 5. FUNCIONES AUXILIARES (LOGICA DE NEGOCIO)
+// ==========================================
 
 function actualizarPosicionEjecutivo(data) {
     var id_eje = data.node.id;
@@ -186,7 +189,7 @@ function actualizarPosicionEjecutivo(data) {
 function eliminarEjecutivo(node) {
     $.post('logicaArbolEjecutivos.php', { accion: 'eliminar', id: node.id }, function () {
         $('#arbol_ejecutivos').jstree('delete_node', node);
-        //  AVISAR AL SOCKET: ELIMINACIÓN
+        // AVISAR AL SOCKET: ELIMINACIÓN
         if (typeof emitirCambio === "function") {
             emitirCambio('TREE_DELETE', { id: node.id });
         }
@@ -194,7 +197,6 @@ function eliminarEjecutivo(node) {
 }
 
 function guardarCambiosArbol(data) {
-    
     var textoLimpio = data.text.replace(/🟢|🟡|🔴/g, '').trim();
     
     $.post('logicaArbolEjecutivos.php', {
@@ -205,31 +207,27 @@ function guardarCambiosArbol(data) {
     }, function (response) {
         var res = JSON.parse(response);
         
-        
         if (res.id) {  
-                
-                // Actualizamos el ID temporal de jstree por el real de la BD
+            // Actualizamos el ID temporal de jstree por el real de la BD
             $('#arbol_ejecutivos').jstree(true).set_id(data.node, res.id);
-                
-                //  AVISAR AL SOCKET: CREACIÓN
-                if (typeof emitirCambio === "function") {
-                    emitirCambio('TREE_NEW', {
-                        id: res.id,         
-                        parent: data.node.parent,
-                        text: textoLimpio
-                    });
-                }
-
-        } else { 
-               
-                if (typeof emitirCambio === "function") {
-                    emitirCambio('TREE_RENAME', {
-                        id: data.node.id,    
-                        text: textoLimpio
-                    });
-                }
+            
+            // AVISAR AL SOCKET: CREACIÓN
+            if (typeof emitirCambio === "function") {
+                emitirCambio('TREE_NEW', {
+                    id: res.id,         
+                    parent: data.node.parent,
+                    text: textoLimpio
+                });
             }
-        
+        } else { 
+            // AVISAR AL SOCKET: RENOMBRAR
+            if (typeof emitirCambio === "function") {
+                emitirCambio('TREE_RENAME', {
+                    id: data.node.id,    
+                    text: textoLimpio
+                });
+            }
+        }
     });
 }
 
@@ -256,7 +254,6 @@ function verHistorialEjecutivo(idEje, nombreEje) {
     }
 }
 
-
 function recargarArbolConFiltros() {
     console.log("¡Filtrando árbol!"); 
     var fechaInicio = document.getElementById('fecha_inicio').value;
@@ -267,60 +264,86 @@ function recargarArbolConFiltros() {
         return;
     }
 
-    // Recargar el árbol con la nueva URL
     $('#arbol_ejecutivos').jstree(true).settings.core.data.url = 
         'obtenerEjecutivosArbol.php?inicio=' + fechaInicio + '&fin=' + fechaFin;
     
     $('#arbol_ejecutivos').jstree(true).refresh();
 
-    // 2. Recargar Tabla (Lista de Citas) 
-    // Solo si ya hay alguien seleccionado, recargamos su tabla
     if (typeof cargarCitas === "function") {
         cargarCitas();
-}
+    }
 }
 
+
+// ==========================================
+// 6. RECEPTOR DE SOCKET (CEREBRO) 🧠
+// ==========================================
 // Función global para que el socketManager la llame
 window.procesarEventoArbol = function(mensaje) {
-    console.log("Evento de Árbol Recibido:", mensaje.tipo);
+    console.log("🌳 Evento Árbol Recibido:", mensaje.tipo);
     
     var arbol = $('#arbol_ejecutivos').jstree(true);
     var d = mensaje.datos;
 
-    // Evitamos procesar nuestros propios eventos si rebotan (opcional)
-    // Pero jsTree maneja bien esto si el ID ya existe.
-
+    // --- CASO 1: NUEVO EJECUTIVO (CREATE) ---
     if (mensaje.tipo === 'TREE_NEW') {
-        // Verificar si ya existe para no duplicar
         if (!arbol.get_node(d.id)) {
-            // Crear nodo visualmente
+            // Creamos nodo. Nota: create_node no dispara rename_node, así que es seguro.
             arbol.create_node(d.parent, {
                 id: d.id,
-                text: d.text, // Estructura base
+                text: d.text, 
                 type: 'ejecutivo'
             });
+            
+            // Efectos
+            setTimeout(() => iluminarNodo(d.id), 100); 
+            mostrarToast(`Nuevo ejecutivo agregado: ${d.text}`);
         }
     } 
+
+    // --- CASO 2: RENOMBRAR (UPDATE) - CON PROTECCIÓN ---
     else if (mensaje.tipo === 'TREE_RENAME') {
         var nodo = arbol.get_node(d.id);
         if (nodo) {
-            // jsTree es delicado con el HTML en el texto, usamos rename_node
-            // pero mantenemos los badges si es posible, o recargamos el nodo
-            arbol.rename_node(nodo, d.text); 
-            // OJO: Esto borrará los badges momentáneamente hasta recargar, 
-            // pero actualiza el nombre base.
+            // 🔒 ACTIVAMOS SEMÁFORO
+            ignorarEventosArbol = true; 
+            
+            // HACEMOS EL CAMBIO
+            arbol.rename_node(nodo, d.text);
+            
+            // 🔓 DESACTIVAMOS SEMÁFORO
+            ignorarEventosArbol = false;
+
+            // Efectos
+            iluminarNodo(d.id);
+            mostrarToast(`Ejecutivo renombrado a: ${d.text}`);
         }
     }
+
+    // --- CASO 3: ELIMINAR (DELETE) ---
     else if (mensaje.tipo === 'TREE_DELETE') {
         var nodo = arbol.get_node(d.id);
         if (nodo) {
             arbol.delete_node(nodo);
+            mostrarToast(`Ejecutivo eliminado (ID: ${d.id})`);
         }
     }
+
+    // --- CASO 4: MOVER (MOVE) - CON PROTECCIÓN ---
     else if (mensaje.tipo === 'TREE_MOVE') {
         var nodo = arbol.get_node(d.id);
         if (nodo) {
+            // 🔒 ACTIVAMOS SEMÁFORO
+            ignorarEventosArbol = true;
+
             arbol.move_node(nodo, d.parent);
+            
+            // 🔓 DESACTIVAMOS SEMÁFORO
+            ignorarEventosArbol = false;
+            
+            // Efectos
+            setTimeout(() => iluminarNodo(d.id), 100);
+            mostrarToast(`Ejecutivo movido de posición`);
         }
     }
 };

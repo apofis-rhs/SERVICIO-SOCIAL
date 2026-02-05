@@ -150,6 +150,15 @@
     opacity: 1;
 }
 
+@keyframes flashArbol {
+    0% { background-color: #d4edda; color: #155724; border-radius: 4px; }
+    100% { background-color: transparent; color: inherit; }
+}
+
+.jstree-flash {
+    animation: flashArbol 2s ease-out;
+}
+
     </style>
 </head>
 
@@ -166,8 +175,8 @@
             <div>
                 <label style="font-weight: bold; display:block;">Modo de Vista:</label>
                 <select id="filtro_jerarquia" style="padding: 5px; border: 1px solid #ccc; border-radius: 4px;">
-                    <option value="individual">👤 Solo este Ejecutivo</option>
-                    <option value="arbol">🌳 Todo su equipo</option>
+                    <option value="individual">Solo este Ejecutivo</option>
+                    <option value="arbol">Todo su equipo</option>
                 </select>
             </div>
 
@@ -181,7 +190,7 @@
                     <input type="date" id="fecha_fin" style="padding: 4px; border: 1px solid #ccc; border-radius: 4px;">
                 </div>
                 <button onclick="recargarArbolConFiltros()" style="background:#6a1b9a; color:white; border:none; padding: 5px 15px; cursor:pointer; font-weight:bold; border-radius: 4px;">
-                    Filtrar 📅
+                    Filtrar 
                 </button>
             </div>
 

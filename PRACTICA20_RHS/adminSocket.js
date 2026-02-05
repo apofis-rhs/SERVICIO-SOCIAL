@@ -38,7 +38,7 @@ function conectarSocket() {
     };
 }
 
-// 2. Función para ENVIAR datos (Nosotros -> Mundo)
+// 2. Función para ENVIAR datos 
 function emitirCambio(tipo, datos) {
     if (socket && socket.readyState === WebSocket.OPEN) {
         const payload = JSON.stringify({
