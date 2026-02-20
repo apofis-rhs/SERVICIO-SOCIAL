@@ -5,7 +5,7 @@
 let ignorarEventosArbol = false; 
 
 // ==========================================
-// 2. HELPER VISUAL (FLASH) ✨
+// 2. HELPER VISUAL 
 // ==========================================
 function iluminarNodo(idNodo) {
     var selector = '#' + idNodo + '_anchor';
@@ -20,7 +20,7 @@ function iluminarNodo(idNodo) {
 }
 
 // ==========================================
-// 3. INICIALIZACIÓN (DOCUMENT READY) 🚀
+// 3. INICIALIZACIÓN 
 // ==========================================
 $(document).ready(function () {
     
@@ -89,12 +89,12 @@ $(document).ready(function () {
     });
 
     // ==========================================
-    // 4. EVENTOS DEL ÁRBOL (CON PROTECCIÓN) 🛡️
+    // 4. EVENTOS DEL ÁRBOL (CON PROTECCIÓN) 
     // ==========================================
 
     // Al renombrar (Manual)
     $('#arbol_ejecutivos').on('rename_node.jstree', function (e, data) {
-        // 🛑 SEMÁFORO: Si el socket está escribiendo, ignoramos este evento
+        // SEMÁFORO: Si el socket está escribiendo, ignoramos este evento
         if (ignorarEventosArbol) return; 
         
         guardarCambiosArbol(data);
@@ -102,7 +102,7 @@ $(document).ready(function () {
 
     // Al mover (Manual)
     $('#arbol_ejecutivos').on('move_node.jstree', function (e, data) {
-        // 🛑 SEMÁFORO: Si el socket está moviendo, ignoramos este evento
+        // SEMÁFORO: Si el socket está moviendo, ignoramos este evento
         if (ignorarEventosArbol) return;
 
         actualizarPosicionEjecutivo(data);
@@ -276,11 +276,11 @@ function recargarArbolConFiltros() {
 
 
 // ==========================================
-// 6. RECEPTOR DE SOCKET (CEREBRO) 🧠
+// 6. RECEPTOR DE SOCKET 
 // ==========================================
 // Función global para que el socketManager la llame
 window.procesarEventoArbol = function(mensaje) {
-    console.log("🌳 Evento Árbol Recibido:", mensaje.tipo);
+    console.log(" Evento Árbol Recibido:", mensaje.tipo);
     
     var arbol = $('#arbol_ejecutivos').jstree(true);
     var d = mensaje.datos;
@@ -305,13 +305,13 @@ window.procesarEventoArbol = function(mensaje) {
     else if (mensaje.tipo === 'TREE_RENAME') {
         var nodo = arbol.get_node(d.id);
         if (nodo) {
-            // 🔒 ACTIVAMOS SEMÁFORO
+            //  ACTIVAMOS SEMÁFORO
             ignorarEventosArbol = true; 
             
             // HACEMOS EL CAMBIO
             arbol.rename_node(nodo, d.text);
             
-            // 🔓 DESACTIVAMOS SEMÁFORO
+            //  DESACTIVAMOS SEMÁFORO
             ignorarEventosArbol = false;
 
             // Efectos
@@ -333,12 +333,12 @@ window.procesarEventoArbol = function(mensaje) {
     else if (mensaje.tipo === 'TREE_MOVE') {
         var nodo = arbol.get_node(d.id);
         if (nodo) {
-            // 🔒 ACTIVAMOS SEMÁFORO
+            //  ACTIVAMOS SEMÁFORO
             ignorarEventosArbol = true;
 
             arbol.move_node(nodo, d.parent);
             
-            // 🔓 DESACTIVAMOS SEMÁFORO
+            //  DESACTIVAMOS SEMÁFORO
             ignorarEventosArbol = false;
             
             // Efectos
