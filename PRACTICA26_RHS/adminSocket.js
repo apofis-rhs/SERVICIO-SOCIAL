@@ -1,0 +1,82 @@
+// Generamos un ID único para esta pestaña al cargar la página
+window.MI_ID_CLIENTE = 'cliente_' + Math.random().toString(36).substr(2, 9);
+console.log(" Mi ID de Cliente:", window.MI_ID_CLIENTE);
+const WS_URL = 'wss://socket.ahjende.com/wss/?encoding=text';
+let socket;
+
+// 1. Inicializar Conexión
+function conectarSocket() {
+    socket = new WebSocket(WS_URL);
+
+    socket.onopen = () => {
+        console.log(" Conectado al WebSocket");
+    };
+
+   socket.onmessage = (event) => {
+    try {
+        const mensaje = JSON.parse(event.data);
+        
+        // 1. SI ES UN EVENTO DE ÁRBOL (Empieza con TREE_)
+        if (mensaje.tipo && mensaje.tipo.startsWith('TREE_')) {
+            if (typeof window.procesarEventoArbol === "function") {
+                window.procesarEventoArbol(mensaje);
+            }
+        } 
+        else {
+            if (typeof procesarMensajeSocket === "function") {
+                procesarMensajeSocket(mensaje);
+            }
+        }
+
+    } catch (e) {
+        console.error("Error socket:", e);
+    }
+};
+
+    socket.onclose = () => {
+        console.warn(" Conexión cerrada. Reintentando en 3s...");
+        setTimeout(conectarSocket, 3000); // Reconexión automática
+    };
+}
+
+// 2. Función para ENVIAR datos 
+function emitirCambio(tipo, datos) {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        datos.emisor_id = window.MI_ID_CLIENTE;
+        const payload = JSON.stringify({
+            tipo: tipo, // 'UPDATE', 'CREATE', 'DELETE'
+            datos: datos,
+        });
+        socket.send(payload);
+    }
+}
+
+// 3. Función para mostrar el Badge Visual (Feedback)
+function mostrarToast(texto) {
+    const container = document.getElementById('toast-container') || crearContenedorToast();
+    
+    const toast = document.createElement('div');
+    toast.className = 'toast-exito';
+    toast.innerHTML = ` <span>${texto}</span>`;
+    
+    container.appendChild(toast);
+    
+    // Animación de entrada
+    setTimeout(() => toast.classList.add('mostrar'), 10);
+
+    // Eliminar después de 3 segundos
+    setTimeout(() => {
+        toast.classList.remove('mostrar');
+        setTimeout(() => toast.remove(), 500);
+    }, 3000);
+}
+
+function crearContenedorToast() {
+    const div = document.createElement('div');
+    div.id = 'toast-container';
+    document.body.appendChild(div);
+    return div;
+}
+
+// Iniciar al cargar
+document.addEventListener("DOMContentLoaded", conectarSocket);

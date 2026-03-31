@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tablero de Control - Servicios</title>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/handsontable/styles/handsontable.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/handsontable/styles/ht-theme-main.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/themes/default/style.min.css" />
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+
+    <style>
+        /* Estilos para la Tabla */
+        .handsontable .htSearchResult {
+            background-color: #c296e9 !important;
+            color: #ffffff !important;
+            font-weight: bold !important;
+            box-shadow: inset 0 0 0 1px #2a7fb3;
+        }
+        .htCenter { text-align: center !important; }
+
+        /* --- ESTILOS NUEVOS PARA BADGES (NÚMEROS) --- */
+        .badge-propio {
+            background-color: #ffffff;
+            color: #333;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            padding: 2px 6px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-left: 5px;
+            box-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+        }
+
+        .badge-recursivo {
+            background-color: #8e44ad; /* Morado */
+            color: white;
+            border-radius: 10px;
+            padding: 2px 6px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-left: 3px;
+            box-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+            cursor: pointer; /* Manita al pasar el mouse */
+        }
+
+        /* Estilos del Modal */
+        .modal-overlay {
+            display: none; 
+            position: fixed;
+            z-index: 9999;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background-color: #fff;
+            margin: 10% auto;
+            padding: 0;
+            border-radius: 8px;
+            width: 60%;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            font-family: Arial, sans-serif;
+        }
+        .modal-header {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .close-btn { font-size: 28px; font-weight: bold; cursor: pointer; color: #aaa; }
+        .close-btn:hover { color: #000; }
+        .modal-body { padding: 20px; max-height: 400px; overflow-y: auto; }
+        .modal-footer { padding: 15px; border-top: 1px solid #eee; text-align: right; }
+        .btn-cerrar { background-color: #c296e9; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
+        .modal-body table { width: 100%; border-collapse: collapse; }
+        .modal-body th, .modal-body td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        .modal-body tr:nth-child(even) { background-color: #f9f9f9; }
+
+        
+/* Badge Blanco (Citas Propias) 🔢 */
+.badge-propio {
+    background-color: #ffffff;
+    color: #333;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    padding: 2px 6px;
+    font-size: 0.8em;
+    font-weight: bold;
+    margin-left: 5px;
+    cursor: pointer; /* ¡Esto hace que parezca hipervínculo!  */
+    transition: all 0.2s;
+}
+.badge-propio:hover {
+    background-color: #e0e0e0;
+    transform: scale(1.1); /* Efecto visual al pasar el mouse */
+}
+
+/* Badge Morado (Citas Recursivas)  */
+.badge-recursivo {
+    background-color: #6340a6; 
+    color: white;
+    border-radius: 10px;
+    padding: 2px 6px;
+    font-size: 0.8em;
+    font-weight: bold;
+    margin-left: 5px;
+    cursor: pointer; /* ¡Cursor de manita!  */
+    box-shadow: 1px 1px 3px rgba(0,0,0,0.2);
+}
+.badge-recursivo:hover {
+    background-color: #865fce;
+    transform: scale(1.1);
+}
+
+@keyframes highlightChange {
+    0% { background-color: #d6e6d0; } 
+    50% { background-color: #d292ec; } 
+    100% { background-color: transparent; }
+}
+
+.celda-actualizada {
+    animation: highlightChange 2s ease-out; /* Dura 2 segundos */
+}
+
+#toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+}
+
+.toast-exito {
+    background-color: #44aac2; /* Verde Bootstrap */
+    color: white;
+    padding: 10px 20px;
+    margin-bottom: 10px;
+    border-radius: 5px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    opacity: 0;
+    transition: opacity 0.5s ease-in-out;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.toast-exito.mostrar {
+    opacity: 1;
+}
+
+@keyframes flashArbol {
+    0% { background-color: #d4edda; color: #155724; border-radius: 4px; }
+    100% { background-color: transparent; color: inherit; }
+}
+
+.jstree-flash {
+    animation: flashArbol 2s ease-out;
+}
+
+/* Destello amarillo suave con transición */
+.celda-comentario-flash {
+    background-color: #fff9c4 !important; 
+    transition: background-color 1s ease-out;
+}
+
+/* Opcional: Hacer el triangulito del comentario Naranja (más visible) */
+.htCommentCell:after {
+    border-top-color: #ff9800 !important;
+
+/* ==========================================
+   PRÁCTICA 28: SOPORTE TÁCTIL MÓVIL
+   Bloquea la selección de texto y el menú nativo del celular
+========================================== */
+#handsometable, .handsontable {
+    -webkit-touch-callout: none; /* Bloquea el menú de iOS */
+    -webkit-user-select: none;   /* Safari */
+    -ms-user-select: none;       /* Edge/IE */
+    user-select: none;           /* Chrome/Android estándar */
+}
+
+/* Permite que los inputs dentro de la tabla sí se puedan escribir */
+.handsontableInput {
+    -webkit-user-select: auto !important;
+    user-select: auto !important;
+}
+}
+
+    </style>
+</head>
+
+<body>
+    
+
+    <div style="background: #f9f9f9; padding: 15px; border-bottom: 1px solid #ddd; margin-bottom: 20px;">
+        <div style="display: flex; gap: 15px; align-items: flex-end;">
+            
+            <div>
+                <label style="font-weight: bold; display:block;">Buscar en tabla:</label>
+                <input id="buscador_agenda" type="text" placeholder="ID, Nombre..." style="padding: 5px; width: 200px; border: 1px solid #ccc; border-radius: 4px;">
+            </div>
+
+            <div>
+                <label style="font-weight: bold; display:block;">Modo de Vista:</label>
+                <select id="filtro_jerarquia" style="padding: 5px; border: 1px solid #ccc; border-radius: 4px;">
+                    <option value="individual">Solo este Ejecutivo</option>
+                    <option value="arbol">Todo su equipo</option>
+                </select>
+            </div>
+
+            <div style="border-left: 2px solid #ccc; padding-left: 15px; display:flex; gap:10px;">
+                <div>
+                    <label style="font-weight: bold; display:block;">Desde:</label>
+                    <input type="date" id="fecha_inicio" style="padding: 4px; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+                <div>
+                    <label style="font-weight: bold; display:block;">Hasta:</label>
+                    <input type="date" id="fecha_fin" style="padding: 4px; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+                <button onclick="recargarArbolConFiltros()" style="background:#6a1b9a; color:white; border:none; padding: 5px 15px; cursor:pointer; font-weight:bold; border-radius: 4px;">
+                    Filtrar 
+                </button>
+            </div>
+
+            <label for="filtro_tipo_eje">Área:</label>
+<select id="filtro_tipo_eje">
+    <option value="Todos" selected>👥 Todos</option>
+    <option value="Admisión">🗣️ Admisión</option>
+    <option value="Administrativo">📄 Administrativo</option>
+</select>
+
+
+        </div>
+    </div>
+    <div id="embudo-operativo" style="display: flex; align-items: center; justify-content: flex-start; gap: 15px; padding: 15px 20px; background: #fdfdfd; border-bottom: 1px solid #eee;">
+        
+        <div style="background: #fff; border-left: 5px solid #4a90e2; padding: 10px 20px; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); text-align: center; min-width: 140px;">
+            <div style="font-size: 11px; color: #888; font-weight: bold; text-transform: uppercase;">Total Citas</div>
+            <div id="funnel-total" style="font-size: 26px; font-weight: bold; color: #333; margin: 5px 0;">0</div>
+            <div style="font-size: 12px; color: #4a90e2; font-weight: bold;">100%</div>
+        </div>
+
+        <div style="color: #ccc; font-size: 20px; font-weight: bold;">➔</div>
+
+        <div style="background: #fff; border-left: 5px solid #FFC0CB; padding: 10px 20px; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); text-align: center; min-width: 140px;">
+            <div style="font-size: 11px; color: #888; font-weight: bold; text-transform: uppercase;">Citas Efectivas</div>
+            <div id="funnel-efectivas" style="font-size: 26px; font-weight: bold; color: #FF0000; margin: 5px 0;">0</div>
+            <div id="funnel-efectivas-pct" style="font-size: 12px; color: #FF0000; font-weight: bold;">0%</div>
+        </div>
+
+        <div style="color: #ccc; font-size: 20px; font-weight: bold;">➔</div>
+
+        <div style="background: #fff; border-left: 5px solid #28a745; padding: 10px 20px; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); text-align: center; min-width: 140px;">
+            <div style="font-size: 11px; color: #888; font-weight: bold; text-transform: uppercase;">Registros</div>
+            <div id="funnel-registros" style="font-size: 26px; font-weight: bold; color: #28a745; margin: 5px 0;">0</div>
+            <div id="funnel-registros-pct" style="font-size: 12px; color: #28a745; font-weight: bold;">0%</div>
+        </div>
+
+    </div>
+    
+
+    <div id="barra-estatus" style="padding: 10px 20px; display: flex; gap: 10px; flex-wrap: wrap; background: #fff; border-bottom: 1px solid #ddd; min-height: 40px; align-items: center;">
+        <span style="color: #999; font-style: italic;">Calculando totales</span>
+    </div>
+
+    <div style="display: flex; gap: 20px; padding: 0 20px;">
+        
+        <div style="width: 30%; border: 1px solid #ddd; padding: 10px; border-radius: 8px; min-height: 500px;">
+            <h4 style="margin-top:0;">Organigrama</h4>
+            <div id="arbol_ejecutivos"></div>
+        </div>
+
+        <div style="width: 70%;">
+            <div id="handsometable"></div>
+        </div>
+    </div>
+
+
+    <div id="modalHistorial" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Historial de Movimientos</h3>
+                <span class="close-btn" onclick="document.getElementById('modalHistorial').style.display='none'">&times;</span>
+            </div>
+            <div id="contenidoHistorial" class="modal-body">
+                </div>
+            <div class="modal-footer">
+                <button class="btn-cerrar" onclick="document.getElementById('modalHistorial').style.display='none'">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jstree/3.3.12/jstree.min.js"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/handsontable/dist/handsontable.full.min.js"></script>
+    <script src="adminSocket.js"></script>
+    <script src="handsome.js"></script>
+    <script src="arbolEjecutivos.js"></script>
+
+</body>
+</html>
